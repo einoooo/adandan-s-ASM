@@ -1,0 +1,35 @@
+//实现符号函数（输入x，输出y）
+//point1:变量输入和输出的方法
+//point2:跳转
+//point3:-1的表示方法
+
+--------x,y 定义部分----------------------------------------------
+X DW -5
+Y DW ?;被写入的变量可以先不写
+
+-----------------------------------------------------------------
+BEGIN:
+PUSH DX
+MOV AX,0
+PUSH AX
+MOV AX,DATA
+MOV DX,AX
+
+MOV AX,X 
+AND AX,AX
+JZ ZERO
+JS NEGATIVE
+MOV BX,1; 凡是涉及到往变量里放数据，数据不能直接放在变量里，先放在寄存器BX里(要调用变量里的值则是放到AX里)
+JMP NEXT
+
+ZERO:
+MOV BX,0
+
+NEGATIVE:
+MOV BX,0ffffh ; -1需要表示成0ffffh
+
+NEXT:
+MOV Y,BX;
+MOV AH,4CH
+INT 21H
+
