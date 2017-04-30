@@ -124,30 +124,30 @@ CHANGE2:
 	     IN AL,PortC
 	     NOT AL
 	     MOV BL,AL
-	     AND AL,0F0H;高四位
-	     AND BL,0FH;低四位
+	     AND AL,0F0H     ;AL装高四位
+	     AND BL,0FH	     ;BL装低四位
 	     
 	     PUSH AX
 	     PUSH AX
-	     PUSH AX
+	     PUSH AX	     ;压三次
 	     
-	     ADD AL,0EH
+	     ADD AL,0EH	     ;让第一个LED灯亮
 	     OUT PortA,AL
-	     POP AX
+	     POP AX	     ;回到高四位
 	     PUSH AX
-	     PUSH BX
+	     PUSH BX	     ;低四位PUSH一次
 	     MOV BX,AX
-	     MOV CX,4
-S1:	     SHR BX,1
+	     MOV CX,4	     ;进循环
+S1:	     SHR BX,1	     ;BX移位4次
 	     LOOP S1
 	     MOV AL,SEGTAB[BX]
-	     POP BX
-	     OUT PortB,AL
+	     POP BX	     ;BX POP回低四位
+	     OUT PortB,AL    ;输出到第一个数码管
 	     CALL DELAY		
 	     
 	     POP AX
 	     ADD AL,0DH
-	     OUT PortA,AL
+	     OUT PortA,AL     ;让第二个LED灯亮
 	     MOV AL,SEGTAB[BX]
 	     OUT PortB,AL
 	     CALL DELAY		
@@ -156,6 +156,8 @@ S1:	     SHR BX,1
 	     ADD AL,0BH
 	     OUT PortA,AL
 	     POP AX
+	     
+	     
 	     PUSH AX
 	     PUSH BX
 	     MOV BX,AX
