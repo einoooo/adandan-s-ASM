@@ -1,30 +1,9 @@
-;-----------------------------------------------------------
-;
-;              Build this with the "Source" menu using
-;                     "Build All" option
-;
-;-----------------------------------------------------------
-;
-;                           实验二示例程序 
 
-;-----------------------------------------------------------
-;                                                          |
-;                                                          |
-; 功能：控制7段数码管的显示                                |
-; 编写：《嵌入式系统原理与实验》课程组                     |
-;-----------------------------------------------------------
-		DOSSEG
-		.MODEL	SMALL		; 设定8086汇编程序使用Small model
-		.8086				; 设定采用8086汇编指令集
-;-----------------------------------------------------------
-;	符号定义                                               |
-;-----------------------------------------------------------
-;
 ; 8255芯片端口地址 （Port number）分配:
-PortA	EQU	90H			; Port A's port number in I/O space
-PortB	EQU 	92H			; Port B's port number in I/O space
-PortC	EQU 	94H			; Port C's port number in I/O space
-CtrlPT	EQU 	96H			; 8255 Control Register's port number in I/O space
+PortA	EQU	90H			; Port A LED灯
+PortB	EQU 	92H			; Port B 数码管
+PortC	EQU 	94H			; Port 开关输入
+CtrlPT	EQU 	96H			; CtrlPT 是接8255
 
 
 ;-----------------------------------------------------------
@@ -39,7 +18,7 @@ DelayLong	dw	40000			; 长延时参量
 DISCHAR DB 01,02,03,04
 
 ; SEGTAB是显示字符0-F，其中有部分数据的段码有错误，请自行修正
-SEGTAB  DB 3FH	; 7-Segment Tube, 共阴极类型的7段数码管示意图
+SEGTAB          DB 3FH	; 7-Segment Tube, 共阴极类型的7段数码管示意图
 		DB 06H	;
 		DB 5BH	;            a a a
 		DB 4FH	;         f         b
@@ -54,30 +33,24 @@ SEGTAB  DB 3FH	; 7-Segment Tube, 共阴极类型的7段数码管示意图
 		DB 39H	;       b7 b6 b5 b4 b3 b2 b1 b0
 		DB 5EH	;       DP  g  f  e  d  c  b  a
 		DB 79H	;
-		DB 31H	;
+		DB 71H	;
 
 
 ;-----------------------------------------------------------
-;	定义代码段                                             |
+;	  代码                                           |
 ;-----------------------------------------------------------
-		.code						; Code segment definition
-		.startup					; 定义汇编程序执行入口点
-;
-; Init 8255 in Mode 0
-; PortA Output, PortB Output
-;
+
 		MOV AL,10000000B
-		OUT CtrlPT,AL	;
-;
-; 把数字1、2、3、4显示在数码管上
-;
-
+		OUT CtrlPT,AL	;给8255送控制字：方式0
+		
+		
+;初始情况，点亮所有二极管，数码管循环显示1，2，3，4
 L1: 
 		MOV AL,  0FEh
 		OUT PortA,AL
 		MOV AL,SEGTAB
 		OUT PortB,AL
-		CALL DELAY			; ？？？ 此处为何需要调研DELAY子程序？
+		CALL DELAY			; ？？？ 此处为何需要调研DELAY子程序？是同一根数码管刷新显示，刷新间隔必须要大
 
 		MOV AL, 0FDh
 		OUT PortA,AL
@@ -98,14 +71,115 @@ L1:
 		CALL DELAY
 
 		JMP L1
+RET
+;-----------------------------------------------------------
+;修改1
+;接受开关的输入，高四位以二进制给发光二极管，低四位给数码管
+;开关输入：PortC
 
+CHANGE1:
+	 IN AL,PortC
+	 NOT AL
+	 MOV BL,AL
+	 AND AL,0F0H;高四位
+	 ADD AL,0EH;第一根管子
+	 OUT PortA,AL
+	 
+	 AND BL,0FH;低四位
+	 MOV AL,SEGTAB[BX]
+	 OUT PortB,AL
+	 JMP CHANGE1
+RET
+;-----------------------------------------------------------
+;修改2
+;接受开关的输入，高四位给第一三个数码管，低四位给第二四个数码管,高四位以二进制给发光二极管
+;不知道这样写对不对呢？？？
+
+;我的写法
+CHANGE2:
+	 IN AL,PortC
+	 NOT AL
+	 MOV BL,AL
+	 AND AL,0F0H;高四位
+	 ADD AL,0EH;第一根管子
+	 OUT PortA,AL
+	 
+	 AND BL,0F0H;高四位
+	 MOV AL,SEGTAB[BX];数码管
+	 OUT PortB,AL
+	 MOV AL,SEGTAB + 3;数码管
+	 OUT PortB,AL
+	 
+	 AND BL,0FH;低四位
+	 MOV AL,SEGTAB + 2;数码管
+	 OUT PortB,AL
+	 MOV AL,SEGTAB + 4;数码管
+	 OUT PortB,AL
+	 	 
+	 JMP CHANGE2
+RET
+
+;答案的写法。。。不停地PUSH POP好烦啊QAQ
+CHANGE2: 	     
+	     IN AL,PortC
+	     NOT AL
+	     MOV BL,AL
+	     AND AL,0F0H;高四位
+	     AND BL,0FH;低四位
+	     
+	     PUSH AX
+	     PUSH AX
+	     PUSH AX
+	     
+	     ADD AL,0EH
+	     OUT PortA,AL
+	     POP AX
+	     PUSH AX
+	     PUSH BX
+	     MOV BX,AX
+	     MOV CX,4
+S1:	     SHR BX,1
+	     LOOP S1
+	     MOV AL,SEGTAB[BX]
+	     POP BX
+	     OUT PortB,AL
+	     CALL DELAY		
+	     
+	     POP AX
+	     ADD AL,0DH
+	     OUT PortA,AL
+	     MOV AL,SEGTAB[BX]
+	     OUT PortB,AL
+	     CALL DELAY		
+	     
+	     POP AX
+	     ADD AL,0BH
+	     OUT PortA,AL
+	     POP AX
+	     PUSH AX
+	     PUSH BX
+	     MOV BX,AX
+	     MOV CX,4
+S2:	     SHR BX,1
+	     LOOP S2
+	     MOV AL,SEGTAB[BX]
+	     POP BX
+	     OUT PortB,AL
+	     CALL DELAY
+
+	     POP AX
+	     ADD AL,07H
+	     OUT PortA,AL
+	     MOV AL,SEGTAB[BX]
+	     OUT PortB,AL
+	     CALL DELAY
+
+	     JMP CHANGE2
 RET
 
 ;--------------------------------------------
-;                                           |
-; Delay system running for a while          |
-; CX : contains time para.                  |
-;                                           |
+;                DELAY写法                 
+;                                        
 ;--------------------------------------------
 
 DELAY1 	PROC
@@ -117,25 +191,3 @@ D0: 	LOOP D0
 DELAY1 	ENDP
 
 
-;--------------------------------------------
-;                                           |
-; Delay system running for a while          |
-;                                           |
-;--------------------------------------------
-
-DELAY 	PROC
-    	PUSH CX
-    	MOV CX,DelayShort
-D1: 	LOOP D1
-    	POP CX
-    	RET
-DELAY 	ENDP
-
-
-;-----------------------------------------------------------
-;	定义堆栈段                                             |
-;-----------------------------------------------------------
-		.stack 100h				; 定义256字节容量的堆栈
-
-
-		END						;指示汇编程序结束编译
