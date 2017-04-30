@@ -1,162 +1,43 @@
 ;-----------------------------------------------------------
-;实验一交通灯示例程序                                         |
-;                                                             |
-;功能：模拟交通灯的转换                                        |
-;74LS244带有8位拨位开关，地址为80H or 82H or 84H or 86H    |
-;74LS273带有8个发光二极管，地址为88H or 8AH or 8CH or 8EH  |
-;                                                          |
+;定义输入输出的起始地址方法，定义到第一个地址就行了;(拓展的要求是修改输入输出接口)
 ;-----------------------------------------------------------
-		DOSSEG
-		.MODEL	TINY		; 设定8086汇编程序使用Small model
-		.8086				; 设定采用8086汇编指令集
-;-----------------------------------------------------------
-;	符号定义                                               |
-;-----------------------------------------------------------
-;
 PortIn	EQU	80h	;定义输入端口号
 PortOut	EQU	88h	;定义输出端口号
+
+
 ;-----------------------------------------------------------
-;	定义代码段                                             |
+;代码主干部分
+;输出的方法 MOV AX 数据;MOV DX 端口;OUT DX,AX;     #要会哟#                   
 ;-----------------------------------------------------------
-		.code						; Code segment definition
-		.startup					; 定义汇编程序执行入口点
-
-;以下开始放置用户指令代码
-;
-
-;--------------------------------------------
-;                                           |
-;	State machine style control system  |
-;                                           |
-;--------------------------------------------
-
-
-;
-;	State11      全是红灯
-;
-MOV AL,36H;NS红EW红
-MOV DX,PortOut;
-OUT DX,AL;
-CALL Delay1;
-;
-;	State12      南北绿灯     
-;
-Main:
-MOV AL,33H;NS绿EW红
-MOV DX,PortOut;
-OUT DX,AL;
-CALL Delay1;
-;
-;	State13      南北绿闪
-;
-MOV CX,6;
+MOV CX,6;循环，亮和不亮是完全对称的两段，间隔要比DELAY1小
 LOOP1:MOV AL,33H;NS绿EW红
       MOV DX,PortOut;
       OUT DX,AL;
       CALL Delay2;
+      
       MOV AL,37H;NS不亮EW红
       MOV DX,PortOut;
       OUT DX,AL;
       CALL Delay2;
-LOOP2:DEC CX;
+      
+LOOP2:DEC CX;这里可以直接用一句LOOP
       JNZ LOOP1;
-;
-;	State14	   南北黄灯	
-;
-MOV AL,35H;NS黄EW红
-MOV DX,PortOut;
-OUT DX,AL;
-CALL Delay3;
 
-;
-;	State15    东西绿灯
-;
-MOV AL,1EH;NS红EW绿
-MOV DX,PortOut;
-OUT DX,AL;
-CALL Delay1;
-
-;
-;	State16     东西绿闪
-;
-MOV CX,6;
-LOOP3: MOV AL,1EH;NS红EW绿
-       MOV DX,PortOut;
-       OUT DX,AL;
-       CALL Delay2;
-       MOV AL,3EH;NS红EW不亮
-       MOV DX,PortOut;
-       OUT DX,AL;
-       CALL Delay2;
-
-LOOP4: DEC CX;
-       JNZ LOOP3;
-
-;
-;	State17    东西黄灯
-;
-MOV AL,2EH;NS红EW黄
-MOV DX,PortOut;
-OUT DX,AL;
-CALL Delay3;
-;
-;	State18
-;
-JMP MAIN;
-;
-
-;--------------------------------------------
-;                                           |
-; Delay system running for a while          |
-; CX : contains time para.                  |
-;                                           |
-;--------------------------------------------
-
-DELAY1 	PROC
+;-----------------------------------------------------------
+;DELAY1子程序：子程序怎么写要掌握 #要会哟#   ：开始，结尾，跳出，保存循环 几个东西             
+;要人工保存第一次计数的值：先PUSH再POP  
+;这里用的是时钟周期，CX的取值比较大
+;-----------------------------------------------------------
+DELAY1 	PROC                    ;开始：名字 PROC
     	PUSH CX
-    	MOV CX,DelayLong	;
+    	MOV CX,DelayLong	
 D0: 	LOOP D0
     	POP CX
-    	RET
-DELAY1 	ENDP
-
-;--------------------------------------------
-;                                           |
-; Delay system running for a while          |
-;                                           |
-;--------------------------------------------
-
-DELAY2 	PROC
-    	PUSH CX
-    	MOV CX,DelayShort
-D1: 	LOOP D1
-    	POP CX
-    	RET
-DELAY2 	ENDP
-
-;--------------------------------------------
-;                                           |
-; Delay system running for yellow          |
-;                                           |
-;--------------------------------------------
-
-DELAY3 	PROC
-    	PUSH CX
-    	MOV CX,DelayYellow
-D1: 	LOOP D1
-    	POP CX
-    	RET
-DELAY3 	ENDP
-
-
+    	RET                     ;因为是子程序，里面要写RET
+DELAY1 	ENDP                    ;结尾：名字 ENDP
 
 ;-----------------------------------------------------------
-;	定义堆栈段                                             |
-;-----------------------------------------------------------
-		.stack 100h				; 定义256字节容量的堆栈
-
-;-----------------------------------------------------------
-;	定义数据段                                             |
+;	定义数据段 注意用的是DW                                             |
 ;-----------------------------------------------------------
 		.data					; 定义数据段
 DelayShort	dw	4000			; 短延时参量	
