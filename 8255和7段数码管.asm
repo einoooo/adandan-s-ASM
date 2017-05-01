@@ -18,7 +18,7 @@ DelayLong	dw	40000			; 长延时参量
 DISCHAR DB 01,02,03,04
 
 ; SEGTAB是显示字符0-F，其中有部分数据的段码有错误，请自行修正
-SEGTAB          DB 3FH	; 7-Segment Tube, 共阴极类型的7段数码管示意图
+SEGTAB          DB 3FH  ;
 		DB 06H	;
 		DB 5BH	;            a a a
 		DB 4FH	;         f         b
@@ -191,5 +191,96 @@ D0: 	LOOP D0
     	POP CX
     	RET
 DELAY1 	ENDP
+
+
+;---------------------------------------------------------------------------------------
+;书上例题:四位数码管，自动滚动显示0000-9999
+;A-0E0H,B-0E1H,C-0E2H,控制端口-0E3H
+
+;七段数码管定义见前
+
+START:
+MOV AL,80H
+OUT 0E3H,AL;初始化8255
+MOV BX,0
+
+;进制转换：从0000-0001-0002-----9999的假象
+;SI指向outbuff的表头，不仅可以读取，也可以修改
+;连除
+;搞清楚除法的时候用的原理，余数和商分别放在哪
+NEXT:
+LEA SI,OUTBUFF
+MOV AX,BX;初始值BX给AX
+MOV DX,0
+MOV CX,1000
+DIV CX
+MOV [SI],AL      ;除以1000，第一位给SI
+INC SI
+MOV AX,DX
+MOV CL,100
+DIV CL
+MOV [SI],AL      ;余数除以100，第一位给SI
+INC SI
+MOV AL,AH
+MOV AH,0
+MOV CL,10
+DIV CL
+MOV [SI],AL      ;除以10，第一位给SI
+INC SI
+MOV [SI],AL      ;最后一位给SI
+
+;
+AGAIN:
+MOV CH,08H
+LEA SI OUTBUFF
+
+;送显的段
+;（SI指第一位）一管1st->(SI指第二位)二管1st->(SI指第三位)三管1st->(SI指第四位)四管1st->AGAIN，SI重新指1
+;...............很多很多次
+;（SI指第一位）一管100th->(SI指第二位)二管100th->(SI指第三位)三管100th->(SI指第四位)四管100th->NEXT，重新计算SI
+;...............100*10000次过去了
+;QAQ好努力啊！
+
+LEDDISP:
+MOV AL,[SI]      ;要显示的值（1-10）给AL
+MOV AH,0
+LEA DI,LEDTAB    ;数码管的首地址给DI
+ADD DI,AX
+MOV AL,[DI]      ;利用指针+偏移位置得到当前应该显示的东西
+OUT 0E1H,AL      ;然后送给端口A0-A7（即是数码管的端口）
+MOV AL,CH        ;取需要亮起来的是第几根／选位码
+OUT 0E2H,AL      ;然后送控制端口C0-C3（即是选通的端口）
+CALL DELAY
+INC SI           ;SI是指针，位置加一
+ROR CH,1         ;CH从00001000开始移位,向右方向移动，依次变为 00000100-00000010-00000001-10000000（可以看出移位计算的便捷性）
+CMP CH,80H       ;然后和80H比较，就出循环
+JNZ LEDDISP      ;不等于0就跳转（等于0就算显示完了一轮4次，进入下一轮，每一轮4个管子一起显示一个数，每个数刷新一百遍）
+
+DEC COUNT        ;延时的作用，COUNT在前面定的是100，100次大循环之后跳出来
+JNZ AGAIN
+MOV COUNT,100
+INC BX           ;这个时候就完成了某个数的显示，BX就是NEXT里面的初始值
+CMP BX,10000     ;一共要显示0000-9999共一万个数
+JZ EXIT
+JMP NEXT 
+
+;退出部分
+EXIT:
+MOV AH,4CH
+INT 21H
+
+;延时子程序       ;注意保护寄存器就可以了，因为程序里ABCD都被用了，而延时的时候又必须要用到寄存器，所以PUSH POP一下
+DELAY PROC NEAR
+PUSH BX
+PUSH CX
+MOV BX,10
+DEL1: MOV CX,0
+DEL2:LOOP DEL2
+DEC BX
+JNZ DEL1
+POP CX
+POP BX
+RET
+DELAY END
 
 
